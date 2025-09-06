@@ -153,8 +153,7 @@ impl Client {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    async fn spam(
+    async fn send_transfers(
         self: Arc<Self>,
         payload: Vec<u8>,
         token: AccountId,
@@ -241,7 +240,7 @@ async fn main() -> Result<()> {
     .into_bytes();
 
     client
-        .spam(
+        .send_transfers(
             payload,
             args.token,
             args.duration,
