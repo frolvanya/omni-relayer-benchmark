@@ -181,11 +181,7 @@ impl Client {
         let mut inflight = FuturesUnordered::new();
         let start = tokio::time::Instant::now();
 
-        loop {
-            if start.elapsed().as_secs() >= duration {
-                break;
-            }
-
+        while start.elapsed().as_secs() < duration {
             if inflight.len() >= MAX_IN_FLIGHT {
                 let _ = inflight.next().await;
                 continue;
