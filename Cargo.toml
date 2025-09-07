@@ -7,7 +7,7 @@ edition = "2024"
 anyhow = "1"
 serde_json = "1"
 clap = { version = "4.5.47", features = ["derive"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "fs"] }
 futures = "0.3"
 
 dotenv = "0.15.0"

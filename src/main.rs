@@ -1,4 +1,8 @@
-use std::sync::{Arc, atomic::AtomicU64};
+use std::{
+    iter::Cycle,
+    sync::{Arc, atomic::AtomicU64},
+    vec::IntoIter,
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -21,6 +25,7 @@ use near_primitives::{
     types::{AccountId, BlockReference},
 };
 use omni_types::OmniAddress;
+use serde_json::Value;
 use tokio::{
     sync::{RwLock, Semaphore},
     time::Duration,
@@ -62,6 +67,7 @@ struct CliArgs {
     reset_block_hash_interval: u64,
 }
 
+#[allow(clippy::struct_field_names)]
 struct Client {
     jsonrpc_client: JsonRpcClient,
     signer: InMemorySigner,
@@ -123,20 +129,20 @@ impl Client {
         Ok(())
     }
 
-    async fn fetch_add_nonce(&self) -> u64 {
+    fn fetch_add_nonce(&self) -> u64 {
         self.nonce.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    async fn transfer(self: Arc<Self>, token: AccountId, args: Vec<u8>) -> Result<()> {
+    async fn transfer(self: Arc<Self>, token: AccountId, payload: Vec<u8>) -> Result<()> {
         let transaction = Transaction::V0(TransactionV0 {
             signer_id: self.signer.account_id.clone(),
             public_key: self.signer.public_key.clone(),
-            nonce: self.fetch_add_nonce().await,
+            nonce: self.fetch_add_nonce(),
             receiver_id: token,
             block_hash: *self.block_hash.read().await,
             actions: vec![Action::FunctionCall(Box::new(FunctionCallAction {
                 method_name: "ft_transfer_call".to_string(),
-                args,
+                args: payload.clone(),
                 gas: FT_TRANSFER_CALL_GAS,
                 deposit: FT_TRANSFER_CALL_DEPOSIT,
             }))],
@@ -148,19 +154,21 @@ impl Client {
         };
 
         let tx_hash = self.jsonrpc_client.call(request).await?;
-        info!("Transaction sent: {:?}", tx_hash);
+        info!("Transaction sent: {tx_hash:?}");
 
         Ok(())
     }
 
     async fn send_transfers(
         self: Arc<Self>,
-        payload: Vec<u8>,
+        mut payloads: Cycle<IntoIter<Vec<u8>>>,
         token: AccountId,
         duration: u64,
         reset_block_hash_interval: u64,
     ) -> Result<()> {
         self.reset_nonce_and_block_hash().await?;
+
+        // let mut payloads = payloads.iter().cycle();
 
         let refresher = {
             let this = self.clone();
@@ -187,10 +195,14 @@ impl Client {
                 continue;
             }
 
+            let Some(payload) = payloads.next() else {
+                warn!("Could not get next payload");
+                continue;
+            };
+
             inflight.push(tokio::spawn({
                 let semaphore = semaphore.clone();
                 let token = token.clone();
-                let payload = payload.clone();
                 let client = self.clone();
 
                 async move {
@@ -200,7 +212,7 @@ impl Client {
                     };
 
                     if let Err(e) = client.transfer(token, payload).await {
-                        warn!("Error sending transfer: {:?}", e);
+                        warn!("Error sending transfer: {e:?}");
                     }
                 }
             }));
@@ -223,21 +235,19 @@ async fn main() -> Result<()> {
     let args = CliArgs::parse();
     let client = Arc::new(Client::new(std::env::var("RPC_URL")?)?);
 
-    let payload = serde_json::json!({
-        "amount": args.amount.to_string(),
-        "msg": serde_json::json!({
-            "recipient": args.recipient,
-            "fee": args.fee.to_string(),
-            "native_token_fee": "0"
-        }).to_string(),
-        "receiver_id": args.omni_bridge,
-    })
-    .to_string()
-    .into_bytes();
+    let payloads_str = tokio::fs::read_to_string("payloads.json").await?;
+    let payloads = serde_json::from_str::<Vec<Value>>(&payloads_str)?;
+    println!("Loaded {} payloads", payloads.len());
+    println!("First payload: {}", payloads[0]);
 
     client
         .send_transfers(
-            payload,
+            payloads
+                .into_iter()
+                .map(|payload| payload.to_string().into_bytes())
+                .collect::<Vec<_>>()
+                .into_iter()
+                .cycle(),
             args.token,
             args.duration,
             args.reset_block_hash_interval,

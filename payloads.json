@@ -1,0 +1,7 @@
+[
+    {
+        "amount": "110000000000000000000000",
+        "msg": "{\"recipient\":\"sol:BXss9YNCX2p6VPf2Em54pHXkXnC2FPBeZgbB9fY1cuBR\",\"fee\":\"10000000000000000000000\",\"native_token_fee\":\"0\"}",
+        "receiver_id": "omni.n-bridge.testnet"
+    }
+]
