@@ -18,4 +18,3 @@ near-jsonrpc-client = "0.18"
 near-jsonrpc-primitives = "0.31.1"
 near-primitives = "0.31.1"
 near-crypto = "0.31.1"
-omni-types = { git = "https://github.com/near-one/omni-bridge", package = "omni-types", rev = "1ff51b59fc0b10b7ed8ff47f0dcf20fe0fbb5735" }

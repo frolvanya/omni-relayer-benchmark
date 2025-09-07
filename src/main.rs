@@ -24,7 +24,6 @@ use near_primitives::{
     transaction::{Transaction, TransactionV0},
     types::{AccountId, BlockReference},
 };
-use omni_types::OmniAddress;
 use serde_json::Value;
 use tokio::{
     sync::{RwLock, Semaphore},
@@ -38,22 +37,6 @@ const MAX_IN_FLIGHT: usize = 100;
 
 #[derive(Parser)]
 struct CliArgs {
-    /// Amount to transfer
-    #[clap(long)]
-    amount: u128,
-
-    /// Recipient address
-    #[clap(long)]
-    recipient: OmniAddress,
-
-    /// Fee to pay
-    #[clap(long)]
-    fee: u128,
-
-    /// Omni bridge account ID
-    #[clap(long)]
-    omni_bridge: AccountId,
-
     /// Token account ID
     #[clap(long)]
     token: AccountId,
@@ -237,8 +220,6 @@ async fn main() -> Result<()> {
 
     let payloads_str = tokio::fs::read_to_string("payloads.json").await?;
     let payloads = serde_json::from_str::<Vec<Value>>(&payloads_str)?;
-    println!("Loaded {} payloads", payloads.len());
-    println!("First payload: {}", payloads[0]);
 
     client
         .send_transfers(
