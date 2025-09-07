@@ -1,0 +1,16 @@
+name: omni-relayer-benchmark test lints
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test-cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CI
+        run: make ci
